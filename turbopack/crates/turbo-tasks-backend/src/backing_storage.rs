@@ -84,11 +84,16 @@ pub trait BackingStorageSealed: 'static + Send + Sync {
         task_id: TaskId,
     ) -> Result<Option<Arc<CachedTaskType>>>;
 
-    // =========================================================================
-    // TaskStorage serialization methods
-    // These methods provide direct serialization to/from TaskStorage without
-    // the intermediate CachedDataItem representation.
-    // =========================================================================
+    /// Serialize TaskStorage meta fields directly to bytes.
+    /// This uses the generated encode_meta method for efficient serialization.
+    fn serialize_typed_meta(&self, storage: &TaskStorage) -> Result<TurboBincodeBuffer> {
+        let mut buffer = TurboBincodeBuffer::new();
+        let mut encoder = turbo_bincode::new_turbo_bincode_encoder(&mut buffer);
+        storage
+            .encode_meta(&mut encoder)
+            .map_err(|e| anyhow::anyhow!("Failed to encode meta: {e:?}"))?;
+        Ok(buffer)
+    }
 
     /// Lookup and decode fields directly into TaskStorage.
     /// # Safety
@@ -102,8 +107,8 @@ pub trait BackingStorageSealed: 'static + Send + Sync {
         storage: &mut TaskStorage,
     ) -> Result<()>;
 
-    /// Batch lookup and decode data for multiple tasks directly into TaskStorage instances.
-    /// Returns a vector of TaskStorage, one for each task_id in the input slice.
+    /// Batch lookup and decode data for multiple tasks directly into TypedStorage instances.
+    /// Returns a vector of TypedStorage, one for each task_id in the input slice.
     /// # Safety
     ///
     /// `tx` must be a transaction from this BackingStorage instance.
